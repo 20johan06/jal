@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HACK THE SYSTEM — Think. Decode. Breach.
 ### Event Infrastructure Platform • SRKR Engineering College
 
@@ -268,3 +269,6 @@ npm run build
 - **Phase 1 Boundary:** Challenge question viewer, evidence artifact decryption, and submission grading are Phase 2 features. Clicking "Inspect Evidence" in Phase 1 acts as a standby indicator.
 - **In-Memory Rate Limiting:** The rate limiter currently utilizes an in-memory sliding window, which is ideal for single-node event servers. For multi-node load balancing, a Redis-backed store would be required.
 - **Single Laptop Protocol:** Teams are intended to use one laptop per squad. Account sharing across multiple devices simultaneously is monitored via the security `audit_logs` table.
+=======
+# jal
+>>>>>>> origin/main
