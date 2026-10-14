@@ -94,6 +94,12 @@ class ApiService {
     });
   }
 
+  async deleteTeam(id: number) {
+    return this.request<{ success: boolean; message: string }>(`/admin/teams/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   async getAdminRounds() {
     return this.request<{ success: boolean; rounds: Round[] }>('/admin/rounds');
   }

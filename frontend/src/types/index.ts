@@ -48,6 +48,8 @@ export interface TeamDashboardData {
     id: number;
     team_id: string;
     team_name: string;
+    member_count: number;
+    member_names?: string | null;
     is_active: number | boolean;
     is_qualified: number | boolean;
   };

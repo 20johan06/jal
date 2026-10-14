@@ -176,17 +176,24 @@ npm run db:migrate
 ```
 
 ### C. Seed Initial Event Data
-Creates the 3 official competition rounds (`ACCESS_DENIED`, `PHANTOM_TRACE`, `SYSTEM_OVERRIDE`), initial admin account, and starter test team:
+Creates the 3 official competition rounds (`ACCESS_DENIED`, `PHANTOM_TRACE`, `SYSTEM_OVERRIDE`) and initializes the admin account (if `INITIAL_ADMIN_PASSWORD` >= 8 chars is configured in `backend/.env`). No demonstration teams or fake business records are inserted:
 ```bash
 npm run db:seed
 ```
 
-### D. Create or Manage Administrators
-To interactively create an organizer account with enforced validation:
+### D. Create or Manage Administrators Interactively
+To interactively create an organizer account with enforced validation (minimum 8-character password):
 ```bash
 npm run db:admin
 ```
-*(Prompts securely for username and a minimum 8-character password. Refuses to overwrite existing passwords without explicit `--update` flag).*
+*(Prompts securely for username and password. Refuses to overwrite existing passwords without an explicit `--update` flag).*
+
+### E. Create Single Temporary Development Test Team (Optional)
+To create or verify the single designated temporary test team (`TEAM-01`) for development testing:
+```bash
+npm run db:test-team
+```
+*(Development-only command. Organizers can delete this test team directly from the Admin Dashboard at any time before the competition).*
 
 ---
 
@@ -215,7 +222,7 @@ npm run dev
 ## 7. Testing & Production Verification
 
 ### Automated Smoke Test Suite
-Runs 10 automated assertions covering backend health, authentication, password verification, role boundaries, rate limiting, and team data isolation against MySQL:
+Runs 12 automated assertions covering backend health, authentication, password verification, role boundaries, team data isolation, dynamic roster count from MySQL, dynamic team creation, team deletion, and rate limiting:
 
 ```bash
 cd backend

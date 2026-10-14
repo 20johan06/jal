@@ -93,8 +93,14 @@ export const ParticipantDashboardPage: React.FC = () => {
                 {dashboardData?.team?.team_name || user?.teamName}
               </h1>
               <p className="text-xs text-slate-400 flex items-center gap-2">
-                <Users className="w-3.5 h-3.5 text-slate-500" />
-                <span>Team Roster: 4 Registered Members</span>
+                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span>
+                  {dashboardData?.team
+                    ? `Team Roster: ${dashboardData.team.member_count} Registered Member${dashboardData.team.member_count === 1 ? '' : 's'}${
+                        dashboardData.team.member_names ? ` (${dashboardData.team.member_names})` : ''
+                      }`
+                    : 'Loading roster details...'}
+                </span>
               </p>
             </div>
 

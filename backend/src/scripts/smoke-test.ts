@@ -58,6 +58,7 @@ async function runSmokeTests() {
 
   let adminToken = '';
   let team1Token = '';
+  let createdDynamicTeamId = 0;
 
   try {
     // Seed temporary test admin
@@ -67,16 +68,16 @@ async function runSmokeTests() {
       [testAdminUser, adminHash, 'admin']
     );
 
-    // Seed temporary test teams
+    // Seed temporary test teams with distinctive member counts
     const team1Hash = await bcrypt.hash(testTeam1Pass, 10);
     const team2Hash = await bcrypt.hash(testTeam2Pass, 10);
     await pool.execute(
-      'INSERT INTO teams (team_id, team_name, password_hash, member_count) VALUES (?, ?, ?, 4)',
-      [testTeam1Id, 'Smoke Test Team Alpha', team1Hash]
+      'INSERT INTO teams (team_id, team_name, password_hash, member_count, member_names) VALUES (?, ?, ?, 3, ?)',
+      [testTeam1Id, 'Smoke Test Team Alpha', team1Hash, 'Tester A, Tester B, Tester C']
     );
     await pool.execute(
-      'INSERT INTO teams (team_id, team_name, password_hash, member_count) VALUES (?, ?, ?, 4)',
-      [testTeam2Id, 'Smoke Test Team Beta', team2Hash]
+      'INSERT INTO teams (team_id, team_name, password_hash, member_count, member_names) VALUES (?, ?, ?, 4, ?)',
+      [testTeam2Id, 'Smoke Test Team Beta', team2Hash, 'Dev 1, Dev 2, Dev 3, Dev 4']
     );
 
     console.log('--- Executing Test Cases ---');
@@ -175,8 +176,8 @@ async function runSmokeTests() {
       }
     });
 
-    // Test 8: Team-Specific Data Isolation
-    await runAssertion('Team Data Isolation (Team only receives its own data)', async () => {
+    // Test 8: Team-Specific Data Isolation & Dynamic Roster Count
+    await runAssertion('Team Data Isolation & Dynamic Roster Count from MySQL', async () => {
       const res = await fetch(`${baseUrl}/team/dashboard`, {
         headers: { 'Authorization': `Bearer ${team1Token}` }
       });
@@ -192,11 +193,73 @@ async function runSmokeTests() {
       if (data.teams) {
         throw new Error('Data leak: Roster of all teams was returned to participant');
       }
+
+      // Verify dynamic member count from MySQL (inserted with 3 members)
+      if (data.team?.member_count !== 3) {
+        throw new Error(`Expected dynamic member_count 3 from MySQL, got ${data.team?.member_count}`);
+      }
+      if (!data.team?.member_names?.includes('Tester A')) {
+        throw new Error(`Expected member_names containing 'Tester A', got '${data.team?.member_names}'`);
+      }
     });
 
-    // Test 9: Rate Limiting Enforcement
+    // Test 9: Admin Dynamic Team Creation (POST /api/admin/teams)
+    await runAssertion('Admin Dynamic Team Creation & Persistence (POST /api/admin/teams)', async () => {
+      const dynamicTeamId = `DYN-${Date.now().toString().slice(-4)}`;
+      const res = await fetch(`${baseUrl}/admin/teams`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          teamId: dynamicTeamId,
+          teamName: 'Dynamic Hackers Squad',
+          password: 'secureTeamPassword123',
+          memberCount: 2,
+          memberNames: 'Alice Hacker, Bob Decoder'
+        })
+      });
+
+      if (res.status !== 201) throw new Error(`Expected HTTP 201, got ${res.status}`);
+      const data: any = await res.json();
+      if (!data.success) throw new Error(`Failed to create team: ${data.message}`);
+      createdDynamicTeamId = data.team.id;
+
+      // Verify team exists in teams listing
+      const listRes = await fetch(`${baseUrl}/admin/teams`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      const listData: any = await listRes.json();
+      const found = listData.teams.find((t: any) => t.team_id === dynamicTeamId);
+      if (!found) throw new Error(`Dynamic team '${dynamicTeamId}' was not found in admin team list`);
+      if (found.member_count !== 2) throw new Error(`Expected member_count 2, got ${found.member_count}`);
+    });
+
+    // Test 10: Admin Team Deletion (DELETE /api/admin/teams/:id)
+    await runAssertion('Admin Team Deletion & Cleanup (DELETE /api/admin/teams/:id)', async () => {
+      if (!createdDynamicTeamId) throw new Error('Dynamic team ID not set');
+
+      const delRes = await fetch(`${baseUrl}/admin/teams/${createdDynamicTeamId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+
+      if (delRes.status !== 200) throw new Error(`Expected HTTP 200, got ${delRes.status}`);
+      const delData: any = await delRes.json();
+      if (!delData.success) throw new Error(`Delete team failed: ${delData.message}`);
+
+      // Confirm team is no longer returned
+      const checkRes = await fetch(`${baseUrl}/admin/teams`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      const checkData: any = await checkRes.json();
+      const stillPresent = checkData.teams.find((t: any) => t.id === createdDynamicTeamId);
+      if (stillPresent) throw new Error('Deleted team is still present in database query results');
+    });
+
+    // Test 11: Rate Limiting Enforcement
     await runAssertion('Rate Limiting (429 returned when burst limit exceeded)', async () => {
-      // Rapidly fire login requests for a dummy account to trigger rate limiter
       const spamUser = `rate_test_${Date.now()}`;
       let rateLimited = false;
 
@@ -221,11 +284,14 @@ async function runSmokeTests() {
     });
 
   } finally {
-    // Clean up temporary test accounts from MySQL
+    // Clean up temporary smoke test accounts from MySQL
     console.log('\n--- Cleaning Up Test Data ---');
     await pool.execute('DELETE FROM admins WHERE username = ?', [testAdminUser]);
     await pool.execute('DELETE FROM teams WHERE team_id IN (?, ?)', [testTeam1Id, testTeam2Id]);
-    await pool.execute("DELETE FROM audit_logs WHERE actor_id IN (?, ?, ?)", [testAdminUser, testTeam1Id, testTeam2Id]);
+    await pool.execute('DELETE FROM audit_logs WHERE actor_id IN (?, ?, ?)', [testAdminUser, testTeam1Id, testTeam2Id]);
+    if (createdDynamicTeamId) {
+      await pool.execute('DELETE FROM teams WHERE id = ?', [createdDynamicTeamId]);
+    }
     console.log('✓ Temporary test data purged from database.');
 
     // Close test server and drain connection pool

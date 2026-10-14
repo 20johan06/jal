@@ -10,6 +10,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:admin": "tsx src/scripts/create-admin.ts",
+    "db:test-team": "tsx src/scripts/create-test-team.ts",
     "test": "tsx src/scripts/smoke-test.ts",
     "test:smoke": "tsx src/scripts/smoke-test.ts"
   },

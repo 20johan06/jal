@@ -13,6 +13,7 @@ import {
   ListFilter,
   AlertCircle,
   FileCheck2,
+  Trash2,
   X
 } from 'lucide-react';
 
@@ -25,6 +26,8 @@ export const AdminDashboardPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // New Team Modal State
   const [showModal, setShowModal] = useState(false);
@@ -104,6 +107,26 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const handleDeleteTeam = async (id: number, teamId: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete team '${teamId}'? This will also remove any associated records.`)) {
+      return;
+    }
+    setDeletingId(id);
+    setError(null);
+    try {
+      const res = await api.deleteTeam(id);
+      if (res.success) {
+        setActionFeedback(`Team '${teamId}' deleted successfully.`);
+        await loadData(false);
+        setTimeout(() => setActionFeedback(null), 3500);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete team.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const filteredTeams = teams.filter(t => 
     t.team_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.team_name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -163,6 +186,13 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="p-4 rounded-lg bg-hts-crimson/10 border border-hts-crimson/40 text-hts-crimson text-xs flex items-center gap-3 font-mono">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {actionFeedback && (
+        <div className="p-4 rounded-lg bg-hts-green-950/60 border border-hts-green-800 text-hts-green-400 text-xs flex items-center gap-3 font-mono">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{actionFeedback}</span>
         </div>
       )}
 
@@ -277,12 +307,13 @@ export const AdminDashboardPage: React.FC = () => {
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Finalist</th>
                 <th className="py-3 px-4">Registered</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-300">
               {filteredTeams.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
                     No teams found matching the search criteria.
                   </td>
                 </tr>
@@ -316,6 +347,17 @@ export const AdminDashboardPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-slate-500 text-[11px]">
                       {new Date(t.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        id={`btn-delete-team-${t.id}`}
+                        onClick={() => handleDeleteTeam(t.id, t.team_id)}
+                        disabled={deletingId === t.id}
+                        className="p-1.5 rounded text-slate-400 hover:text-hts-crimson hover:bg-hts-crimson/10 border border-transparent hover:border-hts-crimson/30 transition-colors disabled:opacity-50"
+                        title={`Delete team ${t.team_id}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))

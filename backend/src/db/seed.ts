@@ -3,31 +3,35 @@ import { pool } from '../config/db.js';
 import { env } from '../config/env.js';
 
 export async function runSeed() {
-  console.log('--- Running Initial Database Seed ---');
+  console.log('--- Running Initial Event Seed ---');
 
-  // 1. Seed initial admin account (if not already existing)
+  // 1. Seed initial admin account if configured and not already existing
   const [existingAdmin]: any = await pool.execute(
     'SELECT id, username FROM admins WHERE username = ?',
     [env.INITIAL_ADMIN_USERNAME]
   );
 
   if (existingAdmin.length === 0) {
-    if (!env.INITIAL_ADMIN_PASSWORD || env.INITIAL_ADMIN_PASSWORD.length < 8) {
-      throw new Error('INITIAL_ADMIN_PASSWORD in environment must be at least 8 characters long.');
-    }
-    const salt = await bcrypt.genSalt(10);
-    const adminPasswordHash = await bcrypt.hash(env.INITIAL_ADMIN_PASSWORD, salt);
+    if (env.INITIAL_ADMIN_PASSWORD && env.INITIAL_ADMIN_PASSWORD.length >= 8) {
+      const salt = await bcrypt.genSalt(10);
+      const adminPasswordHash = await bcrypt.hash(env.INITIAL_ADMIN_PASSWORD, salt);
 
-    await pool.execute(
-      'INSERT INTO admins (username, password_hash, role) VALUES (?, ?, ?)',
-      [env.INITIAL_ADMIN_USERNAME, adminPasswordHash, 'admin']
-    );
-    console.log(`✓ Initial admin '${env.INITIAL_ADMIN_USERNAME}' created.`);
+      await pool.execute(
+        'INSERT INTO admins (username, password_hash, role) VALUES (?, ?, ?)',
+        [env.INITIAL_ADMIN_USERNAME, adminPasswordHash, 'admin']
+      );
+      console.log(`✓ Initial administrator '${env.INITIAL_ADMIN_USERNAME}' created.`);
+    } else {
+      console.log(
+        `ℹ INITIAL_ADMIN_PASSWORD not set or < 8 chars in environment.\n` +
+        `  Run 'npm run db:admin' to interactively create an organizer account.`
+      );
+    }
   } else {
-    console.log(`ℹ Admin '${env.INITIAL_ADMIN_USERNAME}' already exists. Existing credentials preserved.`);
+    console.log(`ℹ Administrator '${env.INITIAL_ADMIN_USERNAME}' already exists. Existing credentials preserved.`);
   }
 
-  // 2. Seed the 3 official event rounds
+  // 2. Seed the 3 official event rounds (Configuration Constants)
   const rounds = [
     {
       key: 'ACCESS_DENIED',
@@ -70,38 +74,18 @@ export async function runSeed() {
     }
   }
 
-  // 3. Optional sample team for testing Phase 1 login verification
-  const testTeamId = 'TEAM-01';
-  const testTeamPass = 'cyber2026';
-  const [existingTeam]: any = await pool.execute(
-    'SELECT id FROM teams WHERE team_id = ?',
-    [testTeamId]
-  );
-
-  if (existingTeam.length === 0) {
-    const teamHash = await bcrypt.hash(testTeamPass, 10);
-    await pool.execute(
-      `INSERT INTO teams (team_id, team_name, password_hash, member_count, member_names)
-       VALUES (?, ?, ?, 4, ?)`,
-      [testTeamId, 'Alpha Cipher', teamHash, 'Alice, Bob, Charlie, Dana']
-    );
-    console.log(`✓ Test team '${testTeamId}' created (password: ${testTeamPass}).`);
-  } else {
-    console.log(`ℹ Test team '${testTeamId}' already exists.`);
-  }
-
-  console.log('✓ Seeding complete.');
+  console.log('✓ Seeding complete. No demonstration teams or business records were inserted.');
 }
 
 // Execute directly if run as a script
 if (process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js')) {
   runSeed()
     .then(() => {
-      console.log('Seed completed successfully.');
+      console.log('Seed process completed successfully.');
       process.exit(0);
     })
     .catch((err) => {
-      console.error('Seed error:', err);
+      console.error('Seed process encountered an error:', err);
       process.exit(1);
     });
 }

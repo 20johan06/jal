@@ -44,9 +44,9 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Unauthenticated team request' });
     }
 
-    // Fetch team summary
+    // Fetch team summary with real member details
     const [teamRows]: any = await pool.execute(
-      `SELECT id, team_id, team_name, is_active, is_qualified FROM teams WHERE id = ?`,
+      `SELECT id, team_id, team_name, member_count, member_names, is_active, is_qualified FROM teams WHERE id = ?`,
       [teamDbId]
     );
 

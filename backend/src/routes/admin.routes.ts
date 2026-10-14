@@ -104,6 +104,44 @@ router.post('/teams', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/admin/teams/:id - Delete a team
+router.delete('/teams/:id', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid team ID parameter.' });
+    }
+
+    const [rows]: any = await pool.execute(
+      'SELECT id, team_id, team_name FROM teams WHERE id = ?',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Team not found.' });
+    }
+
+    const team = rows[0];
+
+    // Delete team (dependent records in submissions are CASCADE deleted)
+    await pool.execute('DELETE FROM teams WHERE id = ?', [id]);
+
+    // Record audit log
+    await pool.execute(
+      'INSERT INTO audit_logs (actor_type, actor_id, action, details) VALUES (?, ?, ?, ?)',
+      ['ADMIN', req.user?.username || 'admin', 'DELETE_TEAM', `Deleted team '${team.team_id}' (${team.team_name})`]
+    );
+
+    return res.json({
+      success: true,
+      message: `Team '${team.team_id}' deleted successfully.`
+    });
+  } catch (error) {
+    console.error('Failed to delete team:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete team.' });
+  }
+});
+
 // GET /api/admin/rounds - Get all event rounds status
 router.get('/rounds', async (req: Request, res: Response) => {
   try {
