@@ -5,23 +5,26 @@ import { env } from '../config/env.js';
 export async function runSeed() {
   console.log('--- Running Initial Database Seed ---');
 
-  // 1. Seed or update initial admin account
-  const salt = await bcrypt.genSalt(10);
-  const adminPasswordHash = await bcrypt.hash(env.INITIAL_ADMIN_PASSWORD, salt);
-
+  // 1. Seed initial admin account (if not already existing)
   const [existingAdmin]: any = await pool.execute(
     'SELECT id, username FROM admins WHERE username = ?',
     [env.INITIAL_ADMIN_USERNAME]
   );
 
   if (existingAdmin.length === 0) {
+    if (!env.INITIAL_ADMIN_PASSWORD || env.INITIAL_ADMIN_PASSWORD.length < 8) {
+      throw new Error('INITIAL_ADMIN_PASSWORD in environment must be at least 8 characters long.');
+    }
+    const salt = await bcrypt.genSalt(10);
+    const adminPasswordHash = await bcrypt.hash(env.INITIAL_ADMIN_PASSWORD, salt);
+
     await pool.execute(
       'INSERT INTO admins (username, password_hash, role) VALUES (?, ?, ?)',
       [env.INITIAL_ADMIN_USERNAME, adminPasswordHash, 'admin']
     );
     console.log(`✓ Initial admin '${env.INITIAL_ADMIN_USERNAME}' created.`);
   } else {
-    console.log(`ℹ Admin '${env.INITIAL_ADMIN_USERNAME}' already exists.`);
+    console.log(`ℹ Admin '${env.INITIAL_ADMIN_USERNAME}' already exists. Existing credentials preserved.`);
   }
 
   // 2. Seed the 3 official event rounds

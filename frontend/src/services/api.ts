@@ -1,6 +1,19 @@
 import { AuthUser, Team, Round, AdminStats, AuditLog } from '../types/index';
 
-const API_BASE = '/api';
+// Resolve API base URL with fallback to '/api' (matching Vite proxy)
+function resolveApiBase(envUrl?: string): string {
+  const url = (envUrl || '').trim();
+  if (!url) return '/api';
+  // Strip trailing slashes
+  const cleanUrl = url.replace(/\/+$/, '');
+  // Ensure /api suffix exists without duplicating it
+  if (!cleanUrl.endsWith('/api')) {
+    return `${cleanUrl}/api`;
+  }
+  return cleanUrl;
+}
+
+const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL);
 
 class ApiService {
   private getToken(): string | null {

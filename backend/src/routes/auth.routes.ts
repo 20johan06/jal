@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { pool } from '../config/db.js';
 import { authenticateToken, generateToken } from '../middleware/auth.js';
+import { adminLoginRateLimiter, teamLoginRateLimiter } from '../middleware/rate-limiter.js';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ const teamLoginSchema = z.object({
 });
 
 // Admin Login
-router.post('/admin/login', async (req: Request, res: Response) => {
+router.post('/admin/login', adminLoginRateLimiter, async (req: Request, res: Response) => {
   try {
     const parseResult = adminLoginSchema.safeParse(req.body);
     if (!parseResult.success) {
@@ -87,7 +88,7 @@ router.post('/admin/login', async (req: Request, res: Response) => {
 });
 
 // Participant Team Login
-router.post('/team/login', async (req: Request, res: Response) => {
+router.post('/team/login', teamLoginRateLimiter, async (req: Request, res: Response) => {
   try {
     const parseResult = teamLoginSchema.safeParse(req.body);
     if (!parseResult.success) {
